@@ -1,0 +1,5 @@
+f1 - 0hz ( mozda malo vise da se ukloni greska senzora)
+f2 - 650hz
+[f1 f2] opseg koji obuhvata korisni signal
+
+f3 - 300hz je freq sinusa unutar opsega

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.io import wavfile
-from scipy.signal import butter, lfilter, iirnotch
+from scipy.signal import butter, lfilter, iirnotch, firwin
 
 from plotting import plot_steps, display_frequency_responses
 
@@ -14,13 +14,14 @@ def read_audio(file_path, combine_channels=False):
 
     return fs, data
 
-def apply_lowpass_filter(data, fs, cutoff_frequency=650, order=4):
+def apply_lowpass_filter(data, fs, cutoff_frequency=650, order=8):
     """Primenjuje niskopropusni filter na audio signal."""
     nyquist = 0.5 * fs
     normal_cutoff = cutoff_frequency / nyquist
     b, a = butter(order, normal_cutoff, btype='low', analog=False)
     filtered_data = lfilter(b, a, data)
     return filtered_data
+
 
 def apply_bandstop_filter(data, fs, stop_frequency=300, Q=30):
     """Primenjuje band-stop filter na audio signal."""
@@ -37,20 +38,19 @@ def save_to_file(file_path, fs, data):
 
 def main():
     input_file = "./sources/12.wav"
-    output_dir = "./results/"
+    output_dir = "./results/audio/"
 
     # Čita WAV fajl bez kombinovanja kanala
     fs, data = read_audio(input_file, combine_channels=True)
 
     # Primenjuje niskopropusni filter
-    cutoff_frequency_lp = 650
-    filtered_data_lp = apply_lowpass_filter(data, fs, cutoff_frequency_lp)
+    filtered_data_lp = apply_lowpass_filter(data, fs, cutoff_frequency = 300, order= 8)
 
     # Primenjuje band-stop filter
-    stop_frequency_bs = 300
-    filtered_data_bs = apply_bandstop_filter(data, fs, stop_frequency_bs)
+    
+    filtered_data_bs = apply_bandstop_filter(data, fs, stop_frequency = 300)
 
-    combined_signal = apply_bandstop_filter(filtered_data_lp, fs, stop_frequency_bs)
+    combined_signal = apply_bandstop_filter(filtered_data_lp, fs, stop_frequency = 300)
 
     save_to_file(f"{output_dir}filtered_signal_lp.wav", fs, filtered_data_lp)
     save_to_file(f"{output_dir}filtered_signal_bs.wav", fs, filtered_data_bs)

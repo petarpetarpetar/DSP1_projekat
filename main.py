@@ -1,39 +1,18 @@
+from matplotlib import pyplot as plt
 import numpy as np
 from scipy.io import wavfile
-from scipy.signal import butter, lfilter, iirnotch, firwin
+from plotting import plot_steps, plot_notch_frequency_response
+from filter_functions import apply_lowpass_filter, apply_bandstop_filter, save_to_file, apply_notch_filter
 
-from plotting import plot_steps, display_frequency_responses
 
 def read_audio(file_path, combine_channels=False):
-    """Čita WAV fajl i vraća stopu uzorkovanja i podatke."""
+    """Reads a WAV file and returns the sampling rate and data."""
     fs, data = wavfile.read(file_path)
     
     if combine_channels and data.ndim > 1:
-        # Ako je postavljena oznaka i postoje više kanala, kombinujte ih uzimajući srednju vrednost
         data = np.mean(data, axis=1)
 
     return fs, data
-
-def apply_lowpass_filter(data, fs, cutoff_frequency=650, order=8):
-    """Primenjuje niskopropusni filter na audio signal."""
-    nyquist = 0.5 * fs
-    normal_cutoff = cutoff_frequency / nyquist
-    b, a = butter(order, normal_cutoff, btype='low', analog=False)
-    filtered_data = lfilter(b, a, data)
-    return filtered_data
-
-
-def apply_bandstop_filter(data, fs, stop_frequency=300, Q=30):
-    """Primenjuje band-stop filter na audio signal."""
-    nyquist = 0.5 * fs
-    notch_frequency = stop_frequency / nyquist
-    b, a = iirnotch(notch_frequency, Q)
-    filtered_data = lfilter(b, a, data)
-    return filtered_data
-
-def save_to_file(file_path, fs, data):
-    """Čuva audio signal u WAV fajlu."""
-    wavfile.write(file_path, fs, data.astype(np.int16))
 
 
 def main():
@@ -44,22 +23,37 @@ def main():
     fs, data = read_audio(input_file, combine_channels=True)
 
     # Primenjuje niskopropusni filter
-    filtered_data_lp = apply_lowpass_filter(data, fs, cutoff_frequency = 300, order= 8)
+    filtered_data_lp = apply_lowpass_filter(data, fs, cutoff_frequency=300, order=8)
+    save_to_file(f"{output_dir}filtered_signal_lp.wav", fs, filtered_data_lp)
 
     # Primenjuje band-stop filter
-    
-    filtered_data_bs = apply_bandstop_filter(data, fs, stop_frequency = 300)
-
-    combined_signal = apply_bandstop_filter(filtered_data_lp, fs, stop_frequency = 300)
-
-    save_to_file(f"{output_dir}filtered_signal_lp.wav", fs, filtered_data_lp)
+    filtered_data_bs = apply_bandstop_filter(data, fs, stop_frequency=300)
+    combined_signal_bs = apply_bandstop_filter(filtered_data_lp, fs, stop_frequency=300)
     save_to_file(f"{output_dir}filtered_signal_bs.wav", fs, filtered_data_bs)
-    save_to_file(f"{output_dir}combined_signal.wav", fs, combined_signal)
+    save_to_file(f"{output_dir}combined_signal_bs.wav", fs, combined_signal_bs)
 
-    plot_steps(fs, data, filtered_data_lp, filtered_data_bs, combined_signal)
+    # Primenjuje notch filter
+    f_notch = 300  # Notch frequency in Hz
+    r = 0.90  # Vary this parameter
+    filtered_data_notch, b_notch, a_notch = apply_notch_filter(data, fs, f_notch, r)
+    save_to_file(f"{output_dir}filtered_signal_notch.wav", fs, filtered_data_notch)
+    
+    filtered_data_notch_4, _, _ = apply_notch_filter(filtered_data_notch, fs, f_notch, r)
+    save_to_file(f"{output_dir}filtered_signal_notch_4.wav", fs, filtered_data_notch_4)
 
-    # Prikazuje samo freq odziv filtera
-    display_frequency_responses(fs, cutoff_frequency_lp=650, notch_frequency=300)
+    filtered_data_notch_6, _, _ = apply_notch_filter(filtered_data_notch_4, fs, f_notch, r)
+    save_to_file(f"{output_dir}filtered_signal_notch_6.wav", fs, filtered_data_notch_6)
+    
+
+    # Output notch filter coefficients
+    print(f"Notch Filter Coefficients (b, a): {b_notch}, {a_notch}")
+
+   # Prikazuje samo freq odziv filtera
+    _, axs = plt.subplots(1, 1, figsize=(18, 18))
+    plot_notch_frequency_response(axs, fs, f_notch, Q=30)
+
+    plot_steps(fs, (data, "original"), (filtered_data_lp, "low pass"), (filtered_data_notch_6, "notch_6"))
+    plot_steps(fs, (data, "original"), (filtered_data_notch, "notch 2nd order"), (filtered_data_notch_4, "notch 4th order"))
 
 if __name__ == "__main__":
     main()
